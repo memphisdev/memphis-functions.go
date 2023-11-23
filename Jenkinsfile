@@ -59,6 +59,7 @@ pipeline {
     }
 
     stage('Checkout to version branch'){
+      when {branch 'latest'}
       steps {
         withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
           sh "git reset --hard origin/latest"
