@@ -2,7 +2,7 @@ def versionTag
 pipeline {
   environment {
     gitBranch = "${env.BRANCH_NAME}"
-    gitURL = "git@github.com:Memphisdev/memphis.go.git"
+    gitURL = "git@github.com:Memphisdev/memphis-functions.go.git"
     repoUrlPrefix = "memphisos"
   }
 
@@ -20,7 +20,6 @@ pipeline {
     stage('Define version - BETA') {
       when {branch 'master'}
       steps {
-        git credentialsId: 'main-github', url: "git@github.com:Memphisdev/memphis-functions.go.git", branch: "${env.gitBranch}" 
         script {
           versionTag = readFile('./version-beta.conf')
         }
@@ -29,12 +28,11 @@ pipeline {
     stage('Define version - LATEST') {
       when {branch 'latest'}
       steps {
-        git credentialsId: 'main-github', url: "git@github.com:Memphisdev/memphis-functions.go.git", branch: "${env.gitBranch}" 
         script {
           versionTag = readFile('./version.conf')
         }
       }
-    }  
+    }
         
 
     stage('Install GoLang') {
@@ -55,7 +53,7 @@ pipeline {
           """
         }
         sh """
-          GOPROXY=proxy.golang.org /usr/local/go/bin/go list -m github.com/memphisdev/memphis.go@v$versionTag
+          GOPROXY=proxy.golang.org /usr/local/go/bin/go list -m github.com/memphisdev/memphis-functions.go@v$versionTag
         """
       }
     }
