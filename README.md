@@ -41,7 +41,7 @@ go get github.com/memphisdev/memphis-functions.go
 
 # Importing
 ```go
-import memphis "github.com/memphisdev/memphis-functions.go"
+import "github.com/memphisdev/memphis-functions.go/memphis"
 ```
 
 ### Creating a Memphis function
@@ -65,7 +65,7 @@ package main
 
 import (
 	"encoding/json"
-    memphis "github.com/memphisdev/memphis-functions.go"
+    "github.com/memphisdev/memphis-functions.go/memphis"
 )
 
 type Event struct {
@@ -100,7 +100,7 @@ import (
 	"encoding/json"
     "strings"
     "errors"
-    memphis "github.com/memphisdev/memphis-functions.go"
+    "github.com/memphisdev/memphis-functions.go/memphis"
 )
 
 type Event struct {
@@ -136,7 +136,7 @@ package main
 import (
 	"encoding/json"
     "strings"
-    memphis "github.com/memphisdev/memphis-functions.go"
+    "github.com/memphisdev/memphis-functions.go/memphis"
 )
 
 type Event struct {
@@ -181,7 +181,7 @@ package main
 import (
 	"encoding/json"
     "strings"
-    memphis "github.com/memphisdev/memphis-functions.go"
+    "github.com/memphisdev/memphis-functions.go/memphis"
     "google.golang.org/protobuf/proto"
     "current_directory/user_message"
 )
