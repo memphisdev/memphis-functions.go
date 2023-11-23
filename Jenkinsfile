@@ -1,32 +1,67 @@
-def gitBranch = env.BRANCH_NAME
-def gitURL = "git@github.com:Memphisdev/memphis.go.git"
-def repoUrlPrefix = "memphisos"
+def versionTag
+pipeline {
+  environment {
+    gitBranch = "${env.BRANCH_NAME}"
+    gitURL = "git@github.com:Memphisdev/memphis.go.git"
+    repoUrlPrefix = "memphisos"
+  }
 
-node ("small-ec2-fleet") {
-  git credentialsId: 'main-github', url: gitURL, branch: gitBranch
-  if (env.BRANCH_NAME ==~ /(master)/) { 
-    versionTag = readFile "./version-beta.conf"
+  agent {
+    label 'small-ec2-fleet'
   }
-  else {
-    versionTag = readFile "./version.conf"
-  }
-  
-  try{
-    stage ('Install GoLang') {
-      sh 'wget -q https://go.dev/dl/go1.18.4.linux-amd64.tar.gz'
-      sh 'sudo  tar -C /usr/local -xzf go1.18.4.linux-amd64.tar.gz'
-    }
-    
-    stage('Deploy GO SDK') {
-      sh "git tag v$versionTag"
-      withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
-        sh "GIT_SSH_COMMAND='ssh -i $check' git push origin v$versionTag"
+
+  stages {
+    stage ('Connect GIT repository') {
+      steps {
+        git credentialsId: 'main-github', url: "git@github.com:Memphisdev/memphis-functions.go.git", branch: "${env.gitBranch}" 
       }
-      sh "GOPROXY=proxy.golang.org /usr/local/go/bin/go list -m github.com/memphisdev/memphis.go@v$versionTag"
     }
-    
-    if (env.BRANCH_NAME ==~ /(latest)/) {
-      stage('Checkout to version branch'){
+
+    stage('Define version - BETA') {
+      when {branch 'master'}
+      steps {
+        git credentialsId: 'main-github', url: "git@github.com:Memphisdev/memphis-functions.go.git", branch: "${env.gitBranch}" 
+        script {
+          versionTag = readFile('./version-beta.conf')
+        }
+      }
+    }
+    stage('Define version - LATEST') {
+      when {branch 'latest'}
+      steps {
+        git credentialsId: 'main-github', url: "git@github.com:Memphisdev/memphis-functions.go.git", branch: "${env.gitBranch}" 
+        script {
+          versionTag = readFile('./version.conf')
+        }
+      }
+    }  
+        
+
+    stage('Install GoLang') {
+      steps {
+        sh """
+          wget -q https://go.dev/dl/go1.18.4.linux-amd64.tar.gz
+          sudo  tar -C /usr/local -xzf go1.18.4.linux-amd64.tar.gz
+        """
+      }
+    }
+
+    stage('Deploy GO Functions SDK') {
+      steps {
+        withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
+          sh """
+            git tag v$versionTag
+            GIT_SSH_COMMAND='ssh -i $check' git push origin v$versionTag
+          """
+        }
+        sh """
+          GOPROXY=proxy.golang.org /usr/local/go/bin/go list -m github.com/memphisdev/memphis.go@v$versionTag
+        """
+      }
+    }
+
+    stage('Checkout to version branch'){
+      steps {
         withCredentials([sshUserPrivateKey(keyFileVariable:'check',credentialsId: 'main-github')]) {
           sh "git reset --hard origin/latest"
           sh "GIT_SSH_COMMAND='ssh -i $check'  git checkout -b $versionTag"
@@ -34,31 +69,35 @@ node ("small-ec2-fleet") {
         }
       }
     }
-    
-    notifySuccessful()
 
-  } catch (e) {
-      currentBuild.result = "FAILED"
+  }
+   
+  post {
+    always {
       cleanWs()
+    }
+    success {
+      notifySuccessful()
+    }
+    failure {
       notifyFailed()
-      throw e
+    }
   }
 }
-
 def notifySuccessful() {
-  emailext (
-      subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    emailext (
+        subject: "SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+        body: """SUCCESSFUL: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':
+        Check console output and connection attributes at ${env.BUILD_URL}""",
+        recipientProviders: [requestor()]
     )
 }
-
 def notifyFailed() {
-  emailext (
-      subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-      body: """<p>FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
-      recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+    emailext (
+        subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+        body: """FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':
+        Check console output at ${env.BUILD_URL}""",
+        recipientProviders: [requestor()]
     )
 }
+  
