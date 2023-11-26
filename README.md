@@ -77,7 +77,7 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders[string]string, inputs[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
     // Get data from msgPayload
     var event Event
     json.Unmarshal(msgPayload, &event)
@@ -112,7 +112,7 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders[string]string, inputs[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
     // Get data from msgPayload
     var event Event
     json.Unmarshal(msgPayload, &event)
@@ -148,7 +148,7 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders[string]string, inputs[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
     // Get data from msgPayload
     var event Event
     json.Unmarshal(msgPayload, &event)
@@ -190,7 +190,7 @@ import (
     "current_directory/user_message"
 )
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders[string]string, inputs[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
     // Get data from msgPayload
     var my_message user_message.Message
     proto.Unmarshal(msgPayload, &user_message)
