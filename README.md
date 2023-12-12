@@ -53,14 +53,18 @@ Memphis provides a `CreateFunction` utility for more easily creating Memphis Fun
 
 The user will write a function which will act as an event handler and will be called for every event that is to be processed by Functions. 
 
-The user created event handler must fulfill the following function signature:
+The user created event handler must fulfill one of the following function signatures:
 ```go
-type EventHandlerFunction func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
+type HandlerType func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
+
+type HandlerSchemaType func(interface{}, map[string]string, map[string]string) (interface{}, map[string]string, error)
 ```
 
-The event handler will take in a `[]byte` representation of an event, also a `map[string]string` of headers that belong to that event, and `map[string]string` representation of the function inputs.
+The `interface{}` types in the second type signature will be a pointer to a user defined object. 
 
-The event handler will then return a modified version of these fields.
+The event handler will take in a `[]byte` or `*Object` representation of an event. It will also take a `map[string]string` of headers that belong to that event, and `map[string]string` representation of the function inputs.
+
+The event handler will then return a modified version of these fields. When using the second function handler, all returns will be as a pointer to the user specified object.
 
 If the processing fails, the user function should return `nil, nil, err`. If the user wishes to skip over an event and not send it to the station, return `nil, nil, nil` and the event will be skipped. Events that return an error will be sent to the dead letter station. 
 
@@ -91,9 +95,42 @@ func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map
 }
 
 func main() {
-	memphis.CreateFunction(eventHandlerFunc);
+	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
 }
 ```
+
+To use a user specified object, create an empty one in main and pass that to the `ObjectHandlerOption` instead of the `BytesHandlerOption`.
+
+```go
+package main
+
+import (
+	"encoding/json"
+    "github.com/memphisdev/memphis-functions.go/memphis"
+)
+
+type Event struct {
+	Field1 string `json:"field1"`
+	Field2 string `json:"field2"`
+}
+
+func eventHandlerFunc(msgPayload interface{}, msgHeaders map[string]string, inputs map[string]string) (interface{}, map[string]string, error){
+    // Get data from msgPayload
+    typedPayload = msgPayload.(*Event)
+
+    // Modify or do something with the payload
+    typedPayload.Field1 = "modified"
+    
+    return typedPayload, msgHeaders, nil
+}
+
+func main() {
+    var eventObject Event
+	memphis.CreateFunction(memphis.ObjectHandlerOption(eventHandlerFunc, &eventObject));
+}
+```
+
+> Note the type assertion is using a pointer to the object, and the address of the object is passed into `ObjectHandlerOption`.
 
 As mentioned previously, if the user would like to send the message to the dead letter station, simply return an error. The unproccessed payload and headers will be included with the message to the dead letter station.
 
@@ -128,7 +165,7 @@ func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map
 }
 
 func main() {
-	memphis.CreateFunction(eventHandlerFunc);
+	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
 }
 ```
 
@@ -164,7 +201,7 @@ func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map
 }
 
 func main() {
-	memphis.CreateFunction(eventHandlerFunc);
+	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
 }
 ```
 
@@ -204,6 +241,6 @@ func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map
 }
 
 func main() {
-	memphis.CreateFunction(eventHandlerFunc);
+	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
 }
 ```

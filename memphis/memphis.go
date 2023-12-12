@@ -34,25 +34,25 @@ type MemphisOutput struct {
 // EventHandlerFunction gets the message payload as []byte, message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out of the station.
-type EventHandler func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
-type HandlerWithSchema func(interface{}, map[string]string, map[string]string) (interface{}, map[string]string, error)
+type HandlerType func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
+type HandlerSchemaType func(interface{}, map[string]string, map[string]string) (interface{}, map[string]string, error)
 
 type HandlerOption func(*HandlerOptions) error
 
 type HandlerOptions struct {
-	Handler           EventHandler
-	HandlerWithSchema HandlerWithSchema
+	Handler           HandlerType
+	HandlerWithSchema HandlerSchemaType
 	UserObject        interface{}
 }
 
-func EventHandlerOption(handler EventHandler) HandlerOption {
+func BytesHandlerOption(handler HandlerType) HandlerOption {
 	return func(handlerOptions *HandlerOptions) error {
 		handlerOptions.Handler = handler
 		return nil
 	}
 }
 
-func EventHandlerSchemaOption(handler HandlerWithSchema, schema interface{}) HandlerOption {
+func ObjectHandlerOption(handler HandlerSchemaType, schema interface{}) HandlerOption {
 	return func(handlerOptions *HandlerOptions) error {
 		handlerOptions.HandlerWithSchema = handler
 		handlerOptions.UserObject = schema
@@ -81,7 +81,9 @@ func checkValidStruct(userStruct interface{}) error {
 }
 
 // This function creates a Memphis function and processes events with the passed-in eventHandler function.
-// eventHandlerFunction gets the message payload as []byte, message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
+// eventHandlerFunction gets the message payload as []byte or as the user specified type, 
+// message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
+// The modified payload type will either be the user type, or []byte depending on which function type is used.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out from the station.
 func CreateFunction(options ...HandlerOption) {
