@@ -61,7 +61,7 @@ type HandlerType func(any, map[string]string, map[string]string) (any, map[strin
 
 The `any` first parameter will always be a pointer to the message payload. 
 
-The event handler will take in a `*[]byte` or `*Object` representation of an event. It will also take a `map[string]string` of headers that belong to that event, and `map[string]string` representation of the function inputs.
+The event handler will take in a `[]byte` or `*Object` representation of an event. It will also take a `map[string]string` of headers that belong to that event, and `map[string]string` representation of the function inputs.
 
 The event handler will then return a modified version of these fields. The return must be either a `[]byte` or a type that will be able to be used with `json.Marshal`.
 
@@ -81,8 +81,8 @@ type Event struct {
 }
 
 func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
-    // Type assert to user type. By default this is a *[]byte
-    as_bytes, ok := msgPayload.(*[]byte)
+    // Type assert to user type. By default this is a []byte
+    as_bytes, ok := msgPayload.([]byte)
 	if !ok{
 		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
 	}
@@ -154,8 +154,8 @@ type Event struct {
 }
 
 func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
-    // Type assert to user type. By default this is a *[]byte
-    as_bytes, ok := msgPayload.(*[]byte)
+    // Type assert to user type. By default this is a []byte
+    as_bytes, ok := msgPayload.([]byte)
 	if !ok{
 		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
 	}
@@ -195,8 +195,8 @@ type Event struct {
 }
 
 func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
-    // Type assert to user type. By default this is a *[]byte
-    as_bytes, ok := msgPayload.(*[]byte)
+    // Type assert to user type. By default this is a []byte
+    as_bytes, ok := msgPayload.([]byte)
 	if !ok{
 		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
 	}
@@ -242,8 +242,8 @@ import (
 )
 
 func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
-    // Type assert to user type. By default this is a *[]byte
-    as_bytes, ok := msgPayload.(*[]byte)
+    // Type assert to user type. By default this is a []byte
+    as_bytes, ok := msgPayload.([]byte)
 	if !ok{
 		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
 	}
