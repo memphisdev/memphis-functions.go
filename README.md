@@ -53,18 +53,17 @@ Memphis provides a `CreateFunction` utility for more easily creating Memphis Fun
 
 The user will write a function which will act as an event handler and will be called for every event that is to be processed by Functions. 
 
-The user created event handler must fulfill one of the following function signatures:
+The user created event handler must fulfill the following function signature:
 ```go
-type HandlerType func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
+type HandlerType func(any, map[string]string, map[string]string) (any, map[string]string, error)
 
-type HandlerSchemaType func(interface{}, map[string]string, map[string]string) (interface{}, map[string]string, error)
 ```
 
-The `interface{}` types in the second type signature will be a pointer to a user defined object. 
+The `any` first parameter will always be a pointer to the message payload. 
 
-The event handler will take in a `[]byte` or `*Object` representation of an event. It will also take a `map[string]string` of headers that belong to that event, and `map[string]string` representation of the function inputs.
+The event handler will take in a `*[]byte` or `*Object` representation of an event. It will also take a `map[string]string` of headers that belong to that event, and `map[string]string` representation of the function inputs.
 
-The event handler will then return a modified version of these fields. When using the second function handler, all returns will be as a pointer to the user specified object.
+The event handler will then return a modified version of these fields. The return must be either a `[]byte` or a type that will be able to be used with `json.Marshal`.
 
 If the processing fails, the user function should return `nil, nil, err`. If the user wishes to skip over an event and not send it to the station, return `nil, nil, nil` and the event will be skipped. Events that return an error will be sent to the dead letter station. 
 
@@ -81,21 +80,26 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
+    // Type assert to user type. By default this is a *[]byte
+    as_bytes, ok := msgPayload.(*[]byte)
+	if !ok{
+		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
+	}
+    
     // Get data from msgPayload
     var event Event
-    json.Unmarshal(msgPayload, &event)
+    json.Unmarshal(as_bytes, &event)
     
     // Modify or do something with the payload
     event.Field1 = "modified"
     
-    // Return the payload back as []bytes
-    eventBytes, _ := json.Marshal(event)
-    return eventBytes, msgHeaders, nil
+    // Return the modified payload
+    return event, msgHeaders, nil
 }
 
 func main() {
-	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
+	memphis.CreateFunction(eventHandlerFunc)
 }
 ```
 
@@ -114,7 +118,7 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload interface{}, msgHeaders map[string]string, inputs map[string]string) (interface{}, map[string]string, error){
+func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
     // Get data from msgPayload
     typedPayload = msgPayload.(*Event)
 
@@ -126,11 +130,11 @@ func eventHandlerFunc(msgPayload interface{}, msgHeaders map[string]string, inpu
 
 func main() {
     var eventObject Event
-	memphis.CreateFunction(memphis.ObjectHandlerOption(eventHandlerFunc, &eventObject));
+	memphis.CreateFunction(eventHandlerFunc, memphis.ObjectOption(&eventObject))
 }
 ```
 
-> Note the type assertion is using a pointer to the object, and the address of the object is passed into `ObjectHandlerOption`.
+> Note the type assertion is using a pointer to the object, and the address of the object is passed into `memphis.ObjectOption`.
 
 As mentioned previously, if the user would like to send the message to the dead letter station, simply return an error. The unproccessed payload and headers will be included with the message to the dead letter station.
 
@@ -149,23 +153,28 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
+    // Type assert to user type. By default this is a *[]byte
+    as_bytes, ok := msgPayload.(*[]byte)
+	if !ok{
+		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
+	}
+
     // Get data from msgPayload
     var event Event
-    json.Unmarshal(msgPayload, &event)
+    json.Unmarshal(as_bytes, &event)
     
     // Modify or do something with the payload
     if strings.Contains(event.Field1, "Bob"){
-        return nil, nil, errors.New("String had Bob in it!")
+        return nil, nil, fmt.Errorf("String had Bob in it!")
     } 
     
-    // Return the payload back as []bytes
-    eventBytes, _ := json.Marshal(event)
-    return eventBytes, msgHeaders, nil
+    // Return the modified payload
+    return event, msgHeaders, nil
 }
 
 func main() {
-	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
+	memphis.CreateFunction(eventHandlerFunc)
 }
 ```
 
@@ -185,23 +194,28 @@ type Event struct {
 	Field2 string `json:"field2"`
 }
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
+    // Type assert to user type. By default this is a *[]byte
+    as_bytes, ok := msgPayload.(*[]byte)
+	if !ok{
+		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
+	}
+
     // Get data from msgPayload
     var event Event
-    json.Unmarshal(msgPayload, &event)
+    json.Unmarshal(as_bytes, &event)
     
     // Modify or do something with the payload
     if strings.Contains(event.Field1, "Bob"){
         return nil, nil, nil
     } 
     
-    // Return the payload back as []bytes
-    eventBytes, _ := json.Marshal(event)
-    return eventBytes, msgHeaders, nil
+    // Return the modified payload
+    return event, msgHeaders, nil
 }
 
 func main() {
-	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
+	memphis.CreateFunction(eventHandlerFunc)
 }
 ```
 
@@ -227,20 +241,26 @@ import (
     "current_directory/user_message"
 )
 
-func eventHandlerFunc(msgPayload[]byte, msgHeaders map[string]string, inputs map[string]string) ([]byte, map[string]string, error){
+func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[string]string) (any, map[string]string, error){
+    // Type assert to user type. By default this is a *[]byte
+    as_bytes, ok := msgPayload.(*[]byte)
+	if !ok{
+		return nil, nil, fmt.Errorf("object failed type assertion: %v, %v", message, reflect.TypeOf(message))
+	}
+
     // Get data from msgPayload
     var my_message user_message.Message
-    proto.Unmarshal(msgPayload, &user_message)
+    proto.Unmarshal(as_bytes, &user_message)
     
     // Modify or do something with the payload
     my_message.data_field = "new_data"
     
-    // Return the payload back as []bytes
+    // Return the payload back as []bytes so we don't json.Marshal the message
     eventBytes, _ := proto.Marshal(&my_message)
     return eventBytes, msgHeaders, nil
 }
 
 func main() {
-	memphis.CreateFunction(memphis.BytesHandlerOption(eventHandlerFunc));
+	memphis.CreateFunction(eventHandlerFunc)
 }
 ```

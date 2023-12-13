@@ -31,36 +31,26 @@ type MemphisOutput struct {
 	FailedMessages []MemphisMsgWithError `json:"failed_messages"`
 }
 
-// EventHandlerFunction gets the message payload as []byte, message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
+// HandlerType functions get the message payload as []byte (or any), message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out of the station.
-type HandlerType func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
-type HandlerSchemaType func(interface{}, map[string]string, map[string]string) (interface{}, map[string]string, error)
+type HandlerType func(any, map[string]string, map[string]string) (any, map[string]string, error)
 
 type HandlerOption func(*HandlerOptions) error
 
 type HandlerOptions struct {
 	Handler           HandlerType
-	HandlerWithSchema HandlerSchemaType
-	UserObject        interface{}
+	UserObject        any
 }
 
-func BytesHandlerOption(handler HandlerType) HandlerOption {
+func ObjectOption(schema any) HandlerOption {
 	return func(handlerOptions *HandlerOptions) error {
-		handlerOptions.Handler = handler
-		return nil
-	}
-}
-
-func ObjectHandlerOption(handler HandlerSchemaType, schema interface{}) HandlerOption {
-	return func(handlerOptions *HandlerOptions) error {
-		handlerOptions.HandlerWithSchema = handler
 		handlerOptions.UserObject = schema
 		return nil
 	}
 }
 
-func UnmarshalIntoStruct(data []byte, userStruct interface{}) error {
+func UnmarshalIntoStruct(data []byte, userStruct any) error {
 	// Unmarshal JSON data into the struct
 	err := json.Unmarshal(data, userStruct)
 	if err != nil {
@@ -70,7 +60,7 @@ func UnmarshalIntoStruct(data []byte, userStruct interface{}) error {
 	return nil
 }
 
-func checkValidStruct(userStruct interface{}) error {
+func checkValidStruct(userStruct any) error {
 	// Check if the provided variable is a pointer to a struct
 	valueOf := reflect.ValueOf(userStruct)
 	if valueOf.Kind() != reflect.Ptr || valueOf.Elem().Kind() != reflect.Struct {
@@ -81,16 +71,15 @@ func checkValidStruct(userStruct interface{}) error {
 }
 
 // This function creates a Memphis function and processes events with the passed-in eventHandler function.
-// eventHandlerFunction gets the message payload as []byte or as the user specified type, 
+// eventHandler gets the message payload as []byte or as the user specified type, 
 // message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
-// The modified payload type will either be the user type, or []byte depending on which function type is used.
+// The modified payload type will either be the user type, or []byte depending on user requirements.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out from the station.
-func CreateFunction(options ...HandlerOption) {
+func CreateFunction(eventHandler HandlerType, options ...HandlerOption) {
 	LambdaHandler := func(ctx context.Context, event *MemphisEvent) (*MemphisOutput, error) {
 		params := HandlerOptions{
-			Handler:           nil,
-			HandlerWithSchema: nil,
+			Handler:           eventHandler,
 			UserObject:        nil,
 		}
 
@@ -109,10 +98,8 @@ func CreateFunction(options ...HandlerOption) {
 			}
 		}
 
-		if len(options) == 0 {
-			return nil, fmt.Errorf("the user must pass in at least one option containing the handler function, or the handler with schema function and its schema")
-		} else if len(options) > 1 {
-			return nil, fmt.Errorf("the user passed in too many options. Functions only supports giivng one option")
+		if len(options) > 1 {
+			return nil, fmt.Errorf("the user passed in too many options. Functions only supports one handler option")
 		}
 
 		var processedEvent MemphisOutput
@@ -127,17 +114,19 @@ func CreateFunction(options ...HandlerOption) {
 				continue
 			}
 
-			var modifiedPayload interface{}
-			var modifiedHeaders map[string]string
-			if params.UserObject == nil {
-				modifiedPayload, modifiedHeaders, err = params.Handler(payload, msg.Headers, event.Inputs)
-			} else {
+			var handlerInput any
+			if params.UserObject != nil{
 				UnmarshalIntoStruct(payload, params.UserObject)
-				var tmpPayload interface{}
-				tmpPayload, modifiedHeaders, err = params.HandlerWithSchema(params.UserObject, msg.Headers, event.Inputs) // err will proagate to next if
-				if err == nil {
-					modifiedPayload, err = json.Marshal(tmpPayload) // err will proagate to next if
-				}
+				handlerInput = params.UserObject
+			}else{
+				handlerInput = &payload
+			}
+
+			modifiedPayload, modifiedHeaders, err := params.Handler(handlerInput, msg.Headers, event.Inputs)
+			_, ok := modifiedPayload.([]byte)
+
+			if err == nil && !ok{
+				modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
 			}
 
 			if err != nil {
