@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"reflect"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -60,16 +58,6 @@ func UnmarshalIntoStruct(data []byte, userStruct any) error {
 	return nil
 }
 
-func checkValidStruct(userStruct any) error {
-	// Check if the provided variable is a pointer to a struct
-	valueOf := reflect.ValueOf(userStruct)
-	if valueOf.Kind() != reflect.Ptr || valueOf.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("input parameter must be a pointer to a struct")
-	}
-
-	return nil
-}
-
 // This function creates a Memphis function and processes events with the passed-in eventHandler function.
 // eventHandler gets the message payload as []byte or as the user specified type, 
 // message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
@@ -89,17 +77,6 @@ func CreateFunction(eventHandler HandlerType, options ...HandlerOption) {
 					return nil, err
 				}
 			}
-		}
-
-		if params.UserObject != nil {
-			err := checkValidStruct(params.UserObject)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if len(options) > 1 {
-			return nil, fmt.Errorf("the user passed in too many options. Functions only supports one handler option")
 		}
 
 		var processedEvent MemphisOutput
