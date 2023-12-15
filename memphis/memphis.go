@@ -34,16 +34,24 @@ type MemphisOutput struct {
 // if all returned values are nil the message will be filtered out of the station.
 type HandlerType func(any, map[string]string, map[string]string) (any, map[string]string, error)
 
-type HandlerOption func(*HandlerOptions) error
+type PayloadOption func(*PayloadOptions) error
 
-type HandlerOptions struct {
-	Handler           HandlerType
-	UserObject        any
+type PayloadOptions struct {
+	Handler     HandlerType
+	UserObject  any
+	PayloadType PayloadTypes
 }
 
-func ObjectOption(schema any) HandlerOption {
-	return func(handlerOptions *HandlerOptions) error {
-		handlerOptions.UserObject = schema
+type PayloadTypes int
+
+const (
+	JSON PayloadTypes = iota + 1
+)
+
+func JSONOption(schema any) PayloadOption {
+	return func(payloadOptions *PayloadOptions) error {
+		payloadOptions.UserObject = schema
+		payloadOptions.PayloadType = JSON
 		return nil
 	}
 }
@@ -59,16 +67,16 @@ func UnmarshalIntoStruct(data []byte, userStruct any) error {
 }
 
 // This function creates a Memphis function and processes events with the passed-in eventHandler function.
-// eventHandler gets the message payload as []byte or as the user specified type, 
+// eventHandler gets the message payload as []byte or as the user specified type,
 // message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
 // The modified payload type will either be the user type, or []byte depending on user requirements.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out from the station.
-func CreateFunction(eventHandler HandlerType, options ...HandlerOption) {
+func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 	LambdaHandler := func(ctx context.Context, event *MemphisEvent) (*MemphisOutput, error) {
-		params := HandlerOptions{
-			Handler:           eventHandler,
-			UserObject:        nil,
+		params := PayloadOptions{
+			Handler:    eventHandler,
+			UserObject: nil,
 		}
 
 		for _, option := range options {
@@ -92,17 +100,17 @@ func CreateFunction(eventHandler HandlerType, options ...HandlerOption) {
 			}
 
 			var handlerInput any
-			if params.UserObject != nil{
+			if params.UserObject != nil {
 				UnmarshalIntoStruct(payload, params.UserObject)
 				handlerInput = params.UserObject
-			}else{
+			} else {
 				handlerInput = payload
 			}
 
 			modifiedPayload, modifiedHeaders, err := params.Handler(handlerInput, msg.Headers, event.Inputs)
 			_, ok := modifiedPayload.([]byte)
 
-			if err == nil && !ok{
+			if err == nil && !ok {
 				modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
 			}
 
