@@ -45,7 +45,8 @@ type PayloadOptions struct {
 type PayloadTypes int
 
 const (
-	JSON PayloadTypes = iota + 1
+	BYTES PayloadTypes = iota + 1 
+	JSON 
 )
 
 func JSONOption(schema any) PayloadOption {
@@ -77,6 +78,7 @@ func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 		params := PayloadOptions{
 			Handler:    eventHandler,
 			UserObject: nil,
+			PayloadType: BYTES,
 		}
 
 		for _, option := range options {
@@ -111,7 +113,9 @@ func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 			_, ok := modifiedPayload.([]byte)
 
 			if err == nil && !ok {
-				modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+				if params.PayloadType == JSON || params.PayloadType == BYTES {
+					modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+				}
 			}
 
 			if err != nil {
