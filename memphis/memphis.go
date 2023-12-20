@@ -49,10 +49,10 @@ const (
 	JSON 
 )
 
-func PayloadInfo(schema any, schemaType PayloadTypes) PayloadOption {
+func PayloadAsJSON(schema any) PayloadOption {
 	return func(payloadOptions *PayloadOptions) error {
 		payloadOptions.UserObject = schema
-		payloadOptions.PayloadType = schemaType
+		payloadOptions.PayloadType = JSON
 		return nil
 	}
 }
