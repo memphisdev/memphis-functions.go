@@ -103,7 +103,7 @@ func main() {
 }
 ```
 
-To use a user specified object, create an empty one in main and pass that to the `ObjectHandlerOption` instead of the `BytesHandlerOption`.
+To use a user specified object, create an empty one in main and pass that to the `memphis.PayloadAsJSON` function.
 
 ```go
 package main
@@ -130,11 +130,11 @@ func eventHandlerFunc(msgPayload any, msgHeaders map[string]string, inputs map[s
 
 func main() {
     var eventObject Event
-	memphis.CreateFunction(eventHandlerFunc, memphis.ObjectOption(&eventObject))
+	memphis.CreateFunction(eventHandlerFunc, memphis.PayloadAsJSON(&eventObject))
 }
 ```
 
-> Note the type assertion is using a pointer to the object, and the address of the object is passed into `memphis.ObjectOption`.
+> Note the type assertion is using a pointer to the object, and the address of the object is passed into `memphis.PayloadAsJSON`.
 
 As mentioned previously, if the user would like to send the message to the dead letter station, simply return an error. The unproccessed payload and headers will be included with the message to the dead letter station.
 
