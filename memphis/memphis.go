@@ -38,7 +38,7 @@ type PayloadOption func(*PayloadOptions) error
 
 type PayloadOptions struct {
 	Handler     HandlerType
-	UserObject  any
+	UserStruct  any
 	PayloadType PayloadTypes
 }
 
@@ -51,7 +51,7 @@ const (
 
 func PayloadAsJSON(schema any) PayloadOption {
 	return func(payloadOptions *PayloadOptions) error {
-		payloadOptions.UserObject = schema
+		payloadOptions.UserStruct = schema
 		payloadOptions.PayloadType = JSON
 		return nil
 	}
@@ -77,7 +77,7 @@ func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 	LambdaHandler := func(ctx context.Context, event *MemphisEvent) (*MemphisOutput, error) {
 		params := PayloadOptions{
 			Handler:    eventHandler,
-			UserObject: nil,
+			UserStruct: nil,
 			PayloadType: BYTES,
 		}
 
@@ -102,9 +102,9 @@ func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 			}
 
 			var handlerInput any
-			if params.UserObject != nil {
-				UnmarshalIntoStruct(payload, params.UserObject)
-				handlerInput = params.UserObject
+			if params.UserStruct != nil {
+				UnmarshalIntoStruct(payload, params.UserStruct)
+				handlerInput = params.UserStruct
 			} else {
 				handlerInput = payload
 			}
