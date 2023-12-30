@@ -3,6 +3,7 @@ package memphis
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -28,17 +29,66 @@ type MemphisOutput struct {
 	FailedMessages []MemphisMsgWithError `json:"failed_messages"`
 }
 
-// EventHandlerFunction gets the message payload as []byte, message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
+// HandlerType functions get the message payload as []byte (or any), message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out of the station.
-type EventHandlerFunction func([]byte, map[string]string, map[string]string) ([]byte, map[string]string, error)
+type HandlerType func(any, map[string]string, map[string]string) (any, map[string]string, error)
+
+type PayloadOption func(*PayloadOptions) error
+
+type PayloadOptions struct {
+	Handler     HandlerType
+	UserStruct  any
+	PayloadType PayloadTypes
+}
+
+type PayloadTypes int
+
+const (
+	BYTES PayloadTypes = iota + 1 
+	JSON 
+)
+
+func PayloadAsJSON(schema any) PayloadOption {
+	return func(payloadOptions *PayloadOptions) error {
+		payloadOptions.UserStruct = schema
+		payloadOptions.PayloadType = JSON
+		return nil
+	}
+}
+
+func UnmarshalIntoStruct(data []byte, userStruct any) error {
+	// Unmarshal JSON data into the struct
+	err := json.Unmarshal(data, userStruct)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // This function creates a Memphis function and processes events with the passed-in eventHandler function.
-// eventHandlerFunction gets the message payload as []byte, message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
+// eventHandler gets the message payload as []byte or as the user specified type,
+// message headers as map[string]string and inputs as map[string]string and should return the modified payload and headers.
+// The modified payload type will either be the user type, or []byte depending on user requirements.
 // error should be returned if the message should be considered failed and go into the dead-letter station.
 // if all returned values are nil the message will be filtered out from the station.
-func CreateFunction(eventHandler EventHandlerFunction) {
+func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 	LambdaHandler := func(ctx context.Context, event *MemphisEvent) (*MemphisOutput, error) {
+		params := PayloadOptions{
+			Handler:    eventHandler,
+			UserStruct: nil,
+			PayloadType: BYTES,
+		}
+
+		for _, option := range options {
+			if option != nil {
+				if err := option(&params); err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		var processedEvent MemphisOutput
 		for _, msg := range event.Messages {
 			payload, err := base64.StdEncoding.DecodeString(msg.Payload)
@@ -51,7 +101,23 @@ func CreateFunction(eventHandler EventHandlerFunction) {
 				continue
 			}
 
-			modifiedPayload, modifiedHeaders, err := eventHandler(payload, msg.Headers, event.Inputs)
+			var handlerInput any
+			if params.UserStruct != nil {
+				UnmarshalIntoStruct(payload, params.UserStruct)
+				handlerInput = params.UserStruct
+			} else {
+				handlerInput = payload
+			}
+
+			modifiedPayload, modifiedHeaders, err := params.Handler(handlerInput, msg.Headers, event.Inputs)
+			_, ok := modifiedPayload.([]byte)
+
+			if err == nil && !ok {
+				if params.PayloadType == JSON || params.PayloadType == BYTES {
+					modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+				}
+			}
+
 			if err != nil {
 				processedEvent.FailedMessages = append(processedEvent.FailedMessages, MemphisMsgWithError{
 					Headers: msg.Headers,
@@ -62,7 +128,7 @@ func CreateFunction(eventHandler EventHandlerFunction) {
 			}
 
 			if modifiedPayload != nil && modifiedHeaders != nil {
-				modifiedPayloadStr := base64.StdEncoding.EncodeToString(modifiedPayload)
+				modifiedPayloadStr := base64.StdEncoding.EncodeToString(modifiedPayload.([]byte))
 				processedEvent.Messages = append(processedEvent.Messages, MemphisMsg{
 					Headers: modifiedHeaders,
 					Payload: modifiedPayloadStr,
