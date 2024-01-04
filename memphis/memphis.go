@@ -116,11 +116,11 @@ func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 			if err == nil{
 				modifiedPayload, modifiedHeaders, err = params.Handler(handlerInput, msg.Headers, event.Inputs)
 				_, ok = modifiedPayload.([]byte)
-			}
-
-			if err == nil && !ok {
-				if params.PayloadType == JSON || params.PayloadType == BYTES {
-					modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+			
+				if err == nil && !ok {
+					if params.PayloadType == JSON || params.PayloadType == BYTES {
+						modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+					}
 				}
 			}
 			
