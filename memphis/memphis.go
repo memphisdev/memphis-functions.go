@@ -103,21 +103,26 @@ func CreateFunction(eventHandler HandlerType, options ...PayloadOption) {
 
 			var handlerInput any
 			if params.UserStruct != nil {
-				UnmarshalIntoStruct(payload, params.UserStruct)
+				err = UnmarshalIntoStruct(payload, params.UserStruct)
 				handlerInput = params.UserStruct
 			} else {
 				handlerInput = payload
 			}
+			
+			var modifiedPayload any
+			var modifiedHeaders map[string]string
 
-			modifiedPayload, modifiedHeaders, err := params.Handler(handlerInput, msg.Headers, event.Inputs)
-			_, ok := modifiedPayload.([]byte)
-
-			if err == nil && !ok {
-				if params.PayloadType == JSON || params.PayloadType == BYTES {
-					modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+			if err == nil{
+				modifiedPayload, modifiedHeaders, err = params.Handler(handlerInput, msg.Headers, event.Inputs)
+				_, ok := modifiedPayload.([]byte)
+			
+				if err == nil && !ok {
+					if params.PayloadType == JSON || params.PayloadType == BYTES {
+						modifiedPayload, err = json.Marshal(modifiedPayload) // err will proagate to next if
+					}
 				}
 			}
-
+			
 			if err != nil {
 				processedEvent.FailedMessages = append(processedEvent.FailedMessages, MemphisMsgWithError{
 					Headers: msg.Headers,
