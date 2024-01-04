@@ -7,7 +7,7 @@ pipeline {
   }
 
   agent {
-    label 'small-ec2-fleet'
+    label 'memphis-jenkins-small-fleet-agent'
   }
 
   stages {
@@ -18,7 +18,7 @@ pipeline {
     }
 
     stage('Define version - BETA') {
-      when {branch 'master'}
+      when {branch 'change-jenkins-agent'}
       steps {
         script {
           versionTag = readFile('./version-beta.conf')
@@ -38,8 +38,8 @@ pipeline {
     stage('Install GoLang') {
       steps {
         sh """
-          wget -q https://go.dev/dl/go1.18.4.linux-amd64.tar.gz
-          sudo  tar -C /usr/local -xzf go1.18.4.linux-amd64.tar.gz
+          wget -q https://go.dev/dl/go1.20.12.linux-amd64.tar.gz
+          sudo  tar -C /usr/local -xzf go1.20.12.linux-amd64.tar.gz
         """
       }
     }
